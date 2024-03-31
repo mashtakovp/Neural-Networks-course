@@ -105,7 +105,8 @@ class TwoLayerNet(object):
 
         # средняя кросс энтропийная потеря и регуляризация
         cor_logprob = -np.log(probs[range(N), y])
-        loss = np.sum(cor_logprob) / N + reg * (np.sum(W1 ** 2) + np.sum(W2 ** 2)) / 2 #data loss + reg loss
+        loss = cor_logprob.sum() / N
+        loss += reg * (np.sum(W1 ** 2) + np.sum(W2 ** 2))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -123,15 +124,15 @@ class TwoLayerNet(object):
         grad_scores[range(N),y] -= 1
         grad_scores /= N
         # Обратное распространение ошибки
-        grads['W2'] = h_l.T@grad_scores + reg * W2 # + regularization gradient contribution
-        grads['b2'] = np.sum(grad_scores, axis=0, keepdims=True)
+        grads['W2'] = h_l.T@grad_scores + 2 * reg * W2 # + regularization gradient contribution
+        grads['b2'] = np.sum(grad_scores, axis=0)
 
         # backprop скрытый слой
-        back_h = grad_scores@W2.T
+        back_h = grad_scores@(W2.T)
         back_h[h_l <= 0] = 0
 
-        grads['W1'] = X.T@back_h + reg * W1 # + regularization gradient contribution
-        grads['b1'] = np.sum(back_h, axis=0, keepdims=True)
+        grads['W1'] = (X.T)@back_h + 2 * reg * W1 # + regularization gradient contribution
+        grads['b1'] = np.sum(back_h, axis=0)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
