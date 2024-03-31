@@ -26,14 +26,17 @@ def svm_loss_naive(W, X, y, reg):
     loss = 0.0
     for i in range(num_train):
         scores = X[i].dot(W)
-        correct_class_score = scores[y[i]]
+        right_class = scores[y[i]]
         for j in range(num_classes):
             if j == y[i]:
                 continue
-            margin = scores[j] - correct_class_score + 1  # note delta = 1
+            margin = scores[j] - right_class + 1  # note delta = 1
+            n_margin = 0
             if margin > 0:
                 loss += margin
-
+                n_margin += 1
+                dW[:, j] = dW[:, j] + X[i]
+                dW[:, y[i]] = dW[:, y[i]] - n_margin * X[i]
         # Right now the loss is a sum over all training examples, but we want it
         # to be an average instead so we divide by num_train.
     loss /= num_train
@@ -51,7 +54,9 @@ def svm_loss_naive(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    dW += W * reg
+    dW /= num_train
+
+    dW += reg * W * 2
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -72,17 +77,20 @@ def svm_loss_vectorized(W, X, y, reg):
     # result in loss.                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-    # Вычисляем оценки для каждого класса
     scores = X@W
-    num_train = X.shape[0]
-    rows = range(num_train)
-    # Вычисляем оценку для правильного класса
-    right_score = scores[rows[1], y]
-    # Вычисляем потери для каждого изображения
-    margins = np.maximum(0, scores - np.reshape(right_score, [num_train, 1]) + 1)
-    margins[rows[1], y] = 0
-    # Вычисляем среднее значение потерь по всем изображениям и регуляризацию
-    loss = np.sum(margins) / num_train + 0.5 * reg * np.sum(W ** 2)
+
+    right_class = scores[np.arange(scores.shape[0]), y]
+
+    margin = scores - right_class.reshape(-1, 1)
+    margin += 1
+    margin[np.arange(margin.shape[0]), y] = 0
+
+    m_margin = - np.sum(margin > 0, axis=1)
+
+    margin[margin < 0] = 0
+
+    loss = np.sum(margin) / X.shape[0]
+    loss += reg * np.sum(W ** 2)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -97,23 +105,12 @@ def svm_loss_vectorized(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    # Находим индексы положительных потерь
-    pos_indices = margins > 0
+    margin[margin > 0] = 1
 
-    # Зануляем потери для классов, для которых потери равны нулю
-    margins[~pos_indices] = 0
+    margin[np.arange(margin.shape[0]), y] = m_margin
 
-    # Заполняем потери для положительных классов единицами
-    margins[pos_indices] = 1
-
-    # Вычисляем сумму потерь по всем классам для каждого изображения
-    row_sum = np.sum(margins, axis=1)
-
-    # Заполняем потери для правильного класса отрицательным значением суммы потерь
-    margins[np.arange(num_train), y] = -row_sum
-
-    # Вычисляем градиент как сумму потерь по всем изображениям, умноженную на матрицу изображений, и регуляризацию
-    dW += (X.T @ margins) / num_train + reg * W
+    dW = (X.T)@margin / X.shape[0]
+    dW += reg * 2 * W
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
